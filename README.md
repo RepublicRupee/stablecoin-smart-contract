@@ -1,1 +1,1 @@
-# stablecoin-smart-contract
+# Stablecoin Smart Contract
