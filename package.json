@@ -1,0 +1,34 @@
+{
+  "name": "republic-rupee-stable-coin",
+  "version": "1.0.0",
+  "description": "stable coin for india",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RepublicRupee/stablecoin-smart-contract.git"
+  },
+  "keywords": [
+    "stablecoin",
+    "stablecoin",
+    "for",
+    "india",
+    "republic",
+    "coin",
+    "rINR"
+  ],
+  "author": "TheRepublicCoin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RepublicRupee/stablecoin-smart-contract/issues"
+  },
+  "homepage": "https://github.com/RepublicRupee/stablecoin-smart-contract#readme",
+  "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^4.3.2"
+  }
+}
