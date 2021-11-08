@@ -53,7 +53,8 @@ contract RepublicRupee is
     function superMint(address to, uint256 amount) public onlyRole(BANK_ROLE) {
         _mint(to, amount);
     }
-
+    
+    // Update Needed:: KYC to mint new Rupee
     function mint(address _to, uint256 _amount) external onlyRole(TREASURY_ROLE) {
         _mint(to, amount);
     }
