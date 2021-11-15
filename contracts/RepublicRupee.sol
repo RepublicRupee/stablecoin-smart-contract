@@ -22,7 +22,7 @@ contract RepublicRupee is
     bytes32 public constant CHIEF_ROLE = keccak256("CHIEF_ROLE");
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
-    
+
     event AddedBlackList(address _who, uint256 _when);
     event RemovedBlackList(address _who, uint256 _when);
     event DestroyedBlackFunds(address _who, uint256 _howmuch, uint256 _when);
@@ -68,13 +68,23 @@ contract RepublicRupee is
         _unpause();
     }
 
-    function superMint(address to, uint256 amount) external onlyRole(TREASURY_ROLE) {
+    function superMint(address to, uint256 amount)
+        external
+        onlyRole(TREASURY_ROLE)
+    {
         _mint(to, amount);
     }
 
-    function buy(address _collateral, uint256 _amount, Sig memory _guardianSign) external {
-        require(isAllowedForCollateral[_collateral], "Buy:: Unsupported Collateral Token");
-        if(kycStatus[msg.sender]) {
+    function buy(
+        address _collateral,
+        uint256 _amount,
+        Sig memory _guardianSign
+    ) external {
+        require(
+            isAllowedForCollateral[_collateral],
+            "Buy:: Unsupported Collateral Token"
+        );
+        if (kycStatus[msg.sender]) {
             _buy(_collateral, _amount);
         } else {
             require(isKYCVerified(_guardianSign), "Buy: Please Complete KYC");
@@ -92,11 +102,7 @@ contract RepublicRupee is
         emit KYCCompleted(msg.sender, block.timestamp);
     }
 
-    function isKYCVerified(Sig memory _guardian)
-        internal
-        view
-        returns (bool)
-    {
+    function isKYCVerified(Sig memory _guardian) internal view returns (bool) {
         bytes memory _guardianMsg = abi.encodePacked(
             msg.sender,
             address(this),
@@ -108,27 +114,25 @@ contract RepublicRupee is
             _guardian.r,
             _guardian.s
         );
-        if (hasRole(GUARDIAN_ROLE, _signedBy)) {
-            return true;
-        } else {
-            return false;
-        }
+        return hasRole(GUARDIAN_ROLE, _signedBy);
     }
 
-    function getMessage() external view returns(bytes memory) {
-        return abi.encodePacked(
-            msg.sender,
-            address(this),
-            block.chainid
-        );
+    function getMessage() external view returns (bytes memory) {
+        return abi.encodePacked(msg.sender, address(this), block.chainid);
     }
 
-    function allowNewCollateralERC20(address _erc20Token) external onlyRole(GUARDIAN_ROLE) {
+    function allowNewCollateralERC20(address _erc20Token)
+        external
+        onlyRole(GUARDIAN_ROLE)
+    {
         isAllowedForCollateral[_erc20Token] = true;
         emit AddedNewERC20(_erc20Token, block.timestamp, msg.sender);
     }
 
-    function removeExistingERC20Collateral(address _erc20Token) external onlyRole(GUARDIAN_ROLE) {
+    function removeExistingERC20Collateral(address _erc20Token)
+        external
+        onlyRole(GUARDIAN_ROLE)
+    {
         isAllowedForCollateral[_erc20Token] = false;
         emit RemovedERC20(_erc20Token, block.timestamp, msg.sender);
     }
