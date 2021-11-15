@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20Burnable
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./Libraries.sol";
 
 contract RepublicRupee is
     Initializable,
@@ -14,32 +15,49 @@ contract RepublicRupee is
     PausableUpgradeable,
     AccessControlUpgradeable
 {
+    using StringLibrary for string;
+    using UintLibrary for uint256;
+
     bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
     bytes32 public constant CHIEF_ROLE = keccak256("CHIEF_ROLE");
-    bytes32 public constant BANK_ROLE = keccak256("BANK_ROLE");
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
-
-    mapping(address => bool) public isBlackListed;
+    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+    
     event AddedBlackList(address _who, uint256 _when);
     event RemovedBlackList(address _who, uint256 _when);
     event DestroyedBlackFunds(address _who, uint256 _howmuch, uint256 _when);
+    event KYCCompleted(address _who, uint256 _when);
+    event AddedNewERC20(address _token, uint256 _when, address _who);
+    event RemovedERC20(address _token, uint256 _when, address _who);
+
+    mapping(address => bool) public isIntruder;
+    mapping(address => bool) public kycStatus;
+    mapping(address => bool) public isAllowedForCollateral;
+
+    struct Sig {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
 
     constructor() initializer {}
 
     function initialize(
-        address _admin,
-        address _governance,
-        address _operator,
-        address _minter
+        address _god,
+        address _king,
+        address _cheif,
+        address _treasury,
+        address _guarian
     ) public initializer {
         __ERC20_init("RepublicRupee", "RINR");
         __ERC20Burnable_init();
         __Pausable_init();
         __AccessControl_init();
-        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
-        _setupRole(GOVERNANCE_ROLE, _governance);
-        _setupRole(CHIEF_ROLE, _operator);
-        _setupRole(BANK_ROLE, _minter);
+        _setupRole(DEFAULT_ADMIN_ROLE, _god);
+        _setupRole(GOVERNANCE_ROLE, _king);
+        _setupRole(CHIEF_ROLE, _cheif);
+        _setupRole(TREASURY_ROLE, _treasury);
+        _setupRole(GUARDIAN_ROLE, _guarian);
     }
 
     function pause() public onlyRole(GOVERNANCE_ROLE) {
@@ -50,27 +68,85 @@ contract RepublicRupee is
         _unpause();
     }
 
-    function superMint(address to, uint256 amount) public onlyRole(BANK_ROLE) {
+    function superMint(address to, uint256 amount) external onlyRole(TREASURY_ROLE) {
         _mint(to, amount);
-    }
-    
-    // Update Needed:: KYC to mint new Rupee
-    function mint(address _to, uint256 _amount) external onlyRole(TREASURY_ROLE) {
-        _mint(to, amount);
-    }
-    
-    function addBlackList(address _who) public onlyRole(CHIEF_ROLE) {
-        isBlackListed[_who] = true;
-        emit AddedBlackList(_who, block.number);
     }
 
-    function removeBlackList(address _who) public onlyRole(CHIEF_ROLE) {
-        isBlackListed[_who] = false;
-        emit RemovedBlackList(_who, block.number);
+    function buy(address _collateral, uint256 _amount, Sig memory _guardianSign) external {
+        require(isAllowedForCollateral[_collateral], "Buy:: Unsupported Collateral Token");
+        if(kycStatus[msg.sender]) {
+            _buy(_collateral, _amount);
+        } else {
+            require(isKYCVerified(_guardianSign), "Buy: Please Complete KYC");
+            updateKYCStatus();
+            _buy(_collateral, _amount);
+        }
+    }
+
+    function _buy(address _collateral, uint256 _amount) internal {
+        // TODO
+    }
+
+    function updateKYCStatus() internal {
+        kycStatus[msg.sender] = true;
+        emit KYCCompleted(msg.sender, block.timestamp);
+    }
+
+    function isKYCVerified(Sig memory _guardian)
+        internal
+        view
+        returns (bool)
+    {
+        bytes memory _guardianMsg = abi.encodePacked(
+            msg.sender,
+            address(this),
+            block.chainid
+        );
+        address _signedBy = StringLibrary.getAddress(
+            _guardianMsg,
+            _guardian.v,
+            _guardian.r,
+            _guardian.s
+        );
+        if (hasRole(GUARDIAN_ROLE, _signedBy)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function getMessage() external view returns(bytes memory) {
+        return abi.encodePacked(
+            msg.sender,
+            address(this),
+            block.chainid
+        );
+    }
+
+    function allowNewCollateralERC20(address _erc20Token) external onlyRole(GUARDIAN_ROLE) {
+        isAllowedForCollateral[_erc20Token] = true;
+        emit AddedNewERC20(_erc20Token, block.timestamp, msg.sender);
+    }
+
+    function removeExistingERC20Collateral(address _erc20Token) external onlyRole(GUARDIAN_ROLE) {
+        isAllowedForCollateral[_erc20Token] = false;
+        emit RemovedERC20(_erc20Token, block.timestamp, msg.sender);
+    }
+
+    function addBlackList(address _who) external onlyRole(CHIEF_ROLE) {
+        isIntruder[_who] = true;
+        kycStatus[_who] = false;
+        emit AddedBlackList(_who, block.timestamp);
+        emit KYCCompleted(_who, block.timestamp);
+    }
+
+    function removeBlackList(address _who) external onlyRole(CHIEF_ROLE) {
+        isIntruder[_who] = false;
+        emit RemovedBlackList(_who, block.timestamp);
     }
 
     function getBlackListStatus(address _who) external view returns (bool) {
-        return isBlackListed[_who];
+        return isIntruder[_who];
     }
 
     function burnBlackFunds(address _blackListedUser)
@@ -78,12 +154,12 @@ contract RepublicRupee is
         onlyRole(CHIEF_ROLE)
     {
         require(
-            isBlackListed[_blackListedUser],
+            isIntruder[_blackListedUser],
             "BurnBlackFunds:: Blacklist user before destroy funds"
         );
         uint256 dirtyFunds = balanceOf(_blackListedUser);
         _burn(_blackListedUser, dirtyFunds);
-        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds, block.number);
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds, block.timestamp);
     }
 
     function _beforeTokenTransfer(
@@ -91,7 +167,7 @@ contract RepublicRupee is
         address to,
         uint256 amount
     ) internal override whenNotPaused {
-        require(!isBlackListed[from], "BeforeTokenTransfer:: User blacklisted");
+        require(!isIntruder[from], "BeforeTokenTransfer:: User blacklisted");
         super._beforeTokenTransfer(from, to, amount);
     }
 }
